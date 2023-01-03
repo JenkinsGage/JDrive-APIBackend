@@ -1,10 +1,12 @@
 from django.contrib.auth.models import User
 from django.db.models import Q
+from django.http import FileResponse
+from django.shortcuts import get_object_or_404
 from rest_framework import permissions, generics
 from rest_flex_fields import FlexFieldsModelViewSet, is_expanded
 from .serializers import UserSerializer, FolderSerializer, FileSerializer, ItemSerializer
 from .models import File, Folder, Item
-from .permissions import IsOwnerOrAccessReadOnly
+import mimetypes
 
 
 class ItemList(generics.ListAPIView):
@@ -42,7 +44,7 @@ class FileDetail(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        return File.objects.filter(Q(Owner=user) | Q(IsSharable=True) | Q(Access__in=[user]))
+        return File.objects.filter(Q(Owner=user))
 
 
 class FolderList(generics.ListCreateAPIView):
@@ -51,7 +53,7 @@ class FolderList(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        return Folder.objects.filter(Q(Owner=user) | Q(Access__in=[user]) | Q(IsSharable=True))
+        return Folder.objects.filter(Q(Owner=user))
 
     def perform_create(self, serializer):
         serializer.save(Owner=self.request.user)
@@ -76,11 +78,11 @@ class FolderRoot(generics.ListAPIView, FlexFieldsModelViewSet):
 
 class FolderDetail(generics.RetrieveUpdateDestroyAPIView, FlexFieldsModelViewSet):
     serializer_class = FolderSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrAccessReadOnly]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        return Folder.objects.filter(Q(Owner=user) | Q(Access__in=[user]) | Q(IsSharable=True))
+        return Folder.objects.filter(Q(Owner=user))
 
 
 class UserList(generics.ListAPIView):
@@ -96,3 +98,16 @@ class LoggedInUserDetail(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         return User.objects.filter(id=user.id)
+
+
+class FileDownload(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        file = get_object_or_404(File, pk=kwargs['id'])
+        file_handle = file.FileData.open()
+        mimetype, _ = mimetypes.guess_type(file.FileData.path)
+        response = FileResponse(file_handle, content_type=mimetype)
+        response['Content-Length'] = file.FileData.size
+        response['Content-Disposition'] = f"attachment; filename={file.Name.split('/')[-1:][0]}"
+        return response

@@ -8,9 +8,7 @@ from .storage import OverwriteStorage, GetHashName
 class Item(models.Model):
     Id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     Owner = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='Items')
-    Name = models.TextField(default=None)
-    Access = models.ManyToManyField('auth.User', 'AccessibleItems', blank=True)
-    IsSharable = models.BooleanField(default=False)
+    Name = models.CharField(default=None, max_length=256)
     Type = models.CharField(max_length=8, default=None)
 
 
@@ -29,6 +27,13 @@ class File(Item):
 
         self.Type = 'File'
         super().save(*args, **kwargs)
+
+    def delete(self, using=None, keep_parents=False):
+        files_with_same_data = File.objects.filter(FileData=self.FileData)
+        if files_with_same_data.count() == 1:
+            self.FileData.delete()
+            print(f'File {self.FileData} Was Permanently Removed From Disk')
+        return super().delete(using, keep_parents)
 
     def __str__(self):
         return f'{self.FileData.name}({self.Id})'
