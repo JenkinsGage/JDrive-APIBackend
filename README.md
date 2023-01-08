@@ -1,5 +1,5 @@
 # FileShare
-FileShare is a REST API server that prodiveds general cloud drive services based on DJango and DJango Rest Framework.
+FileShare is a REST API server that provides general cloud drive services based on DJango and DJango Rest Framework.
 > **Warning** The project is still under development!!
 
 # Front-End
