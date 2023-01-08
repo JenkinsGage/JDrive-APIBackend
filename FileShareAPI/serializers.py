@@ -13,14 +13,10 @@ class UserSerializer(FlexFieldsModelSerializer):
 class FileSerializer(FlexFieldsModelSerializer):
     Size = serializers.ReadOnlyField(source='FileData.size')
 
-    def validate_Folder(self, folder):
-        if len(folder) != 1:
-            raise serializers.ValidationError('File Must Be Uploaded To 1 And Only 1 Folder')
-        return folder
 
     class Meta:
         model = File
-        fields = ['Id', 'Owner', 'Name', 'UploadedTime', 'Hash', 'FileData', 'Size', 'Folder',
+        fields = ['Id', 'Owner', 'Name', 'UploadedTime', 'Hash', 'FileData', 'Size', 'ParentFolder',
                   'Type']
         extra_kwargs = {
             'Owner': {'read_only': True},

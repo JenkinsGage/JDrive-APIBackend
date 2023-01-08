@@ -16,6 +16,7 @@ class File(Item):
     UploadedTime = models.DateTimeField(auto_now=True)
     Hash = models.CharField(max_length=64, default=None)
     FileData = models.FileField(upload_to=GetHashName, storage=OverwriteStorage)
+    ParentFolder = models.ForeignKey('Folder', on_delete=models.CASCADE, related_name='Files', blank=False, null=False)
 
     def save(self, *args, **kwargs):
         if self.Hash is None:
@@ -41,7 +42,7 @@ class File(Item):
 
 class Folder(Item):
     CreatedTime = models.DateTimeField(auto_now=True)
-    Files = models.ManyToManyField(File, 'Folder', blank=True)
+    # Files = models.ManyToManyField(File, 'Folder', blank=True)
     ParentFolder = models.ForeignKey('self', on_delete=models.CASCADE, related_name='SubFolders', blank=True, null=True)
 
     def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
