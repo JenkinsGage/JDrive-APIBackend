@@ -1,18 +1,41 @@
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
-from rest_framework import serializers
 from rest_flex_fields import FlexFieldsModelSerializer
-from .models import File, Folder, Item
+from rest_framework import serializers
+
+from .models import File, Folder
+
+UserModel = get_user_model()
 
 
 class UserSerializer(FlexFieldsModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'Items']
+        extra_kwargs = {
+            'id': {'read_only': True},
+            'email': {'required': True},
+            'Items': {'read_only': True}
+        }
+
+
+class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = User
+        fields = ['username', 'password', 'email']
+
+    def create(self, validated_data):
+        user = UserModel.objects.create_user(
+            username=validated_data['username'],
+            password=validated_data['password'],
+            email=validated_data['email'])
+        return user
 
 
 class FileSerializer(FlexFieldsModelSerializer):
     Size = serializers.ReadOnlyField(source='FileData.size')
-
 
     class Meta:
         model = File
@@ -56,9 +79,3 @@ class FolderSerializer(FlexFieldsModelSerializer):
         'Files': (FileSerializer, {'many': True}),
         'SubFolders': ('FileShareAPI.FolderSerializer', {'many': True})
     }
-
-
-class ItemSerializer(FlexFieldsModelSerializer):
-    class Meta:
-        model = Item
-        fields = '__all__'

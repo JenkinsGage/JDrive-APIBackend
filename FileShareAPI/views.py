@@ -1,21 +1,17 @@
+import mimetypes
+
 from django.contrib.auth.models import User
 from django.db.models import Q
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
-from rest_framework import permissions, generics
 from rest_flex_fields import FlexFieldsModelViewSet, is_expanded
-from .serializers import UserSerializer, FolderSerializer, FileSerializer, ItemSerializer
-from .models import File, Folder, Item
-import mimetypes
+from rest_framework import permissions, generics
 
+from .models import File, Folder
+from .serializers import UserSerializer, FolderSerializer, FileSerializer, RegisterSerializer
 
-class ItemList(generics.ListAPIView):
-    serializer_class = ItemSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        return Item.objects.filter(Owner=user)
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 
 
 class FileList(generics.ListCreateAPIView):
@@ -85,10 +81,8 @@ class FolderDetail(generics.RetrieveUpdateDestroyAPIView, FlexFieldsModelViewSet
         return Folder.objects.filter(Q(Owner=user))
 
 
-class UserList(generics.ListAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-    permission_classes = [permissions.IsAdminUser]
+class Register(generics.CreateAPIView):
+    serializer_class = RegisterSerializer
 
 
 class LoggedInUserDetail(generics.ListAPIView):
@@ -111,3 +105,15 @@ class FileDownload(generics.ListAPIView):
         response['Content-Length'] = file.FileData.size
         response['Content-Disposition'] = f"attachment; filename={file.Name.split('/')[-1:][0]}"
         return response
+
+
+# TODO
+@api_view(['GET'])
+def TryToSendVerificationCode(request):
+    email = request.query_params['email']
+
+    # try_to_send_email(email)
+    # if sent:
+    return Response(data={'state': 'sent'})
+    # else:
+    # return Response(data={'state': 'failed'})

@@ -42,7 +42,6 @@ class File(Item):
 
 class Folder(Item):
     CreatedTime = models.DateTimeField(auto_now=True)
-    # Files = models.ManyToManyField(File, 'Folder', blank=True)
     ParentFolder = models.ForeignKey('self', on_delete=models.CASCADE, related_name='SubFolders', blank=True, null=True)
 
     def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
@@ -51,3 +50,16 @@ class Folder(Item):
 
     def __str__(self):
         return f'{self.Name}({self.Id})'
+
+
+class Share:
+    Id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    Owner = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='Items')
+    Items = models.ManyToManyField(File, related_name='Shares')
+    CreatedTime = models.DateTimeField(auto_now=True)
+    OutdatedTime = models.DateTimeField()
+
+    # Permission Level 0: Read Only, 1: Read and Upload, 2: Read, Upload and Delete
+    PermissionLevel = models.IntegerField(default=0)
+    Members = models.ManyToManyField('auth.User', blank=True, related_name='Shares')
+    Code = models.CharField(blank=True, null=True, max_length=8, default=None)
