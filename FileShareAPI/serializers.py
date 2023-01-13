@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 from rest_flex_fields import FlexFieldsModelSerializer
 from rest_framework import serializers
 
-from .models import File, Folder
+from .models import File, Folder, Share
 
 UserModel = get_user_model()
 
@@ -40,12 +40,13 @@ class FileSerializer(FlexFieldsModelSerializer):
     class Meta:
         model = File
         fields = ['Id', 'Owner', 'Name', 'UploadedTime', 'Hash', 'FileData', 'Size', 'ParentFolder',
-                  'Type']
+                  'Type', 'Creator']
         extra_kwargs = {
             'Owner': {'read_only': True},
             'Hash': {'read_only': True},
             'Type': {'read_only': True},
             'FileData': {'required': False},
+            'Creator': {'read_only': True}
         }
 
 
@@ -68,14 +69,27 @@ class FolderSerializer(FlexFieldsModelSerializer):
     class Meta:
         model = Folder
         fields = ['Id', 'Owner', 'Name', 'CreatedTime', 'Files', 'ParentFolder', 'SubFolders',
-                  'Type']
+                  'Type', 'Creator']
         extra_kwargs = {
             'SubFolders': {'read_only': True},
             'Owner': {'read_only': True},
             'Type': {'read_only': True},
+            'Creator': {'read_only': True}
         }
 
     expandable_fields = {
         'Files': (FileSerializer, {'many': True}),
         'SubFolders': ('FileShareAPI.FolderSerializer', {'many': True})
     }
+
+
+class ShareSerializer(FlexFieldsModelSerializer):
+    class Meta:
+        model = Share
+        fields = '__all__'
+        extra_kwargs = {
+            'Id': {'read_only': True},
+            'Owner': {'read_only': True},
+            'Code': {'write_only': True},
+            'Items': {'read_only': True}
+        }

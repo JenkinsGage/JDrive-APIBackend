@@ -7,11 +7,14 @@ from django.shortcuts import get_object_or_404
 from rest_flex_fields import FlexFieldsModelViewSet, is_expanded
 from rest_framework import permissions, generics
 
-from .models import File, Folder
-from .serializers import UserSerializer, FolderSerializer, FileSerializer, RegisterSerializer
+from .models import File, Folder, Share
+from .serializers import UserSerializer, FolderSerializer, FileSerializer, RegisterSerializer, ShareSerializer
+from .permissions import IsOwnerOrReadOnly, ShareAccessPermission, ItemPermission, ShareAddItemPermission
+from rest_framework import serializers
 
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from .utils import get_all_items_under
 
 
 class FileList(generics.ListCreateAPIView):
@@ -19,7 +22,8 @@ class FileList(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save(Owner=self.request.user)
+        # Set both Owner and Creator to the user who uploaded it
+        serializer.save(Owner=self.request.user, Creator=self.request.user)
 
     def get_queryset(self):
         user = self.request.user
@@ -35,12 +39,9 @@ class FileByHash(generics.ListAPIView):
 
 
 class FileDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = File.objects.all()
     serializer_class = FileSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        return File.objects.filter(Q(Owner=user))
+    permission_classes = [permissions.IsAuthenticated, ItemPermission]
 
 
 class FolderList(generics.ListCreateAPIView):
@@ -52,7 +53,8 @@ class FolderList(generics.ListCreateAPIView):
         return Folder.objects.filter(Q(Owner=user))
 
     def perform_create(self, serializer):
-        serializer.save(Owner=self.request.user)
+        # Set both Owner and Creator to the user who created it
+        serializer.save(Owner=self.request.user, Creator=self.request.user)
 
 
 class FolderRoot(generics.ListAPIView, FlexFieldsModelViewSet):
@@ -73,12 +75,9 @@ class FolderRoot(generics.ListAPIView, FlexFieldsModelViewSet):
 
 
 class FolderDetail(generics.RetrieveUpdateDestroyAPIView, FlexFieldsModelViewSet):
+    queryset = Folder.objects.all()
     serializer_class = FolderSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        return Folder.objects.filter(Q(Owner=user))
+    permission_classes = [permissions.IsAuthenticated, ItemPermission]
 
 
 class Register(generics.CreateAPIView):
@@ -95,6 +94,7 @@ class LoggedInUserDetail(generics.ListAPIView):
 
 
 class FileDownload(generics.ListAPIView):
+    # TODO: Constraint the download permission
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
@@ -105,6 +105,40 @@ class FileDownload(generics.ListAPIView):
         response['Content-Length'] = file.FileData.size
         response['Content-Disposition'] = f"attachment; filename={file.Name.split('/')[-1:][0]}"
         return response
+
+
+class ShareList(generics.ListCreateAPIView):
+    serializer_class = ShareSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # Query all the shares that created by you or joined by you
+        user = self.request.user
+        return Share.objects.filter(Q(Owner=user) | Q(Members=user))
+
+    def perform_create(self, serializer):
+        items = get_all_items_under(serializer.validated_data['Root'])
+        serializer.save(Owner=self.request.user, Items=items)
+
+
+class ShareDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Share.objects.all()
+    serializer_class = ShareSerializer
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly, ShareAccessPermission]
+
+
+class CreateFolderViaShare(generics.CreateAPIView):
+    queryset = Folder.objects.all()
+    serializer_class = FolderSerializer
+    permission_classes = [permissions.IsAuthenticated, ShareAddItemPermission]
+
+    def perform_create(self, serializer):
+        share = Share.objects.get(Id=self.kwargs['share'])
+        if not share.Items.filter(Id=serializer.validated_data['ParentFolder'].Id).exists():
+            raise serializers.ValidationError('Parent Folder Not Accessible')
+        serializer.save(Owner=share.Owner, Creator=self.request.user)
+        share.Items.add(serializer.instance)
+        share.save()
 
 
 # TODO

@@ -35,6 +35,12 @@ urlpatterns = [
     # GET download/<str:id>/ - To download the file with a given id
     path('download/<str:id>/', views.FileDownload.as_view()),
 
+    path('shares/', views.ShareList.as_view()),
+
+    path('shares/<str:pk>/', views.ShareDetail.as_view()),
+
+    path('shares/<str:share>/create-folder/', views.CreateFolderViaShare.as_view())
+
     # TODO
     # GET verify/?email=xxxx@gmail.com
     # path('verify/', views.TryToSendVerificationCode)

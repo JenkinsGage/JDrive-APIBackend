@@ -6,10 +6,17 @@ from .storage import OverwriteStorage, GetHashName
 
 
 class Item(models.Model):
+    # UUID of the item
     Id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    # Owner of the item, it's default to the uploader or creator but in some cases it can be the owner of a share
     Owner = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='Items')
+    # Name of the item
     Name = models.CharField(default=None, max_length=256)
+    # Type of the item, 'File' or 'Folder'
     Type = models.CharField(max_length=8, default=None)
+    # Creator of the file, it's default to Owner.
+    # But the creator will be different from Owner if the item was created via share view
+    Creator = models.ForeignKey('auth.User', related_name='CreatedFiles', on_delete=models.SET_NULL, null=True)
 
 
 class File(Item):
@@ -52,14 +59,14 @@ class Folder(Item):
         return f'{self.Name}({self.Id})'
 
 
-class Share:
+class Share(models.Model):
     Id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    Owner = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='Items')
-    Items = models.ManyToManyField(File, related_name='Shares')
+    Owner = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='CreatedShares')
+    Items = models.ManyToManyField(Item, related_name='Shares')
+    Root = models.ForeignKey(Folder, on_delete=models.CASCADE, related_name='RelatedShares')
     CreatedTime = models.DateTimeField(auto_now=True)
-    OutdatedTime = models.DateTimeField()
-
-    # Permission Level 0: Read Only, 1: Read and Upload, 2: Read, Upload and Delete
-    PermissionLevel = models.IntegerField(default=0)
-    Members = models.ManyToManyField('auth.User', blank=True, related_name='Shares')
+    OutdatedTime = models.DateTimeField(blank=True, null=True)
+    # Share Type: 0 - Read Only 1 - Group Share
+    ShareType = models.IntegerField(default=0)
+    Members = models.ManyToManyField('auth.User', blank=True, related_name='JoinedShares')
     Code = models.CharField(blank=True, null=True, max_length=8, default=None)
